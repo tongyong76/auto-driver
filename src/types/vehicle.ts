@@ -115,6 +115,7 @@ export interface IGeoFence {
     northEast: { lng: number; lat: number };
   };
   createdAt: number;
+  boundVehicleIds?: string[];
 }
 
 // 越界告警事件

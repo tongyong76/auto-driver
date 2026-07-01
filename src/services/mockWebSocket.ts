@@ -61,6 +61,7 @@ class MockWebSocket {
     this.vehicles.forEach((vehicle: IVehicle) => {
       // 更新位置
       updateVehiclePosition(vehicle);
+      updateVehicleTrajectory(vehicle);
 
       // 模拟随机故障产生（千分之一概率）
       if (Math.random() < 0.001 && vehicle.status !== VehicleStatus.FAULT) {
@@ -139,6 +140,21 @@ class MockWebSocket {
         callbacks.splice(index, 1);
       }
     }
+  }
+
+  /**
+   * 获取当前车辆数据
+   */
+  public getVehicles(): IVehicle[] {
+    return [...this.vehicles];
+  }
+
+  /**
+   * 获取指定车辆的轨迹
+   */
+  public getVehicleTrajectory(vehicleId: string): IVehicle['trajectory'] | null {
+    const vehicle = this.vehicles.find((v) => v.id === vehicleId);
+    return vehicle ? [...vehicle.trajectory] : null;
   }
 }
 

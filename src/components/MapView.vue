@@ -27,6 +27,7 @@
     VehicleStatus,
     type IWebSocketMessage,
     type IGeoFence,
+    type ITrajectoryPoint,
     FenceType
   } from '@/types/vehicle';
 
@@ -49,6 +50,58 @@
 
   // 当前车辆数据（用于热力图更新）
   let currentVehicles: IVehicle[] = [];
+  let trajectoryLine: any = null;
+  let trajectoryMarker: any = null;
+  let trajectoryIcon: any = null;
+
+  const clearTrajectory = (): void => {
+    if (trajectoryLine && map) {
+      map.removeOverlay(trajectoryLine);
+      trajectoryLine = null;
+    }
+    if (trajectoryMarker && map) {
+      map.removeOverlay(trajectoryMarker);
+      trajectoryMarker = null;
+    }
+    trajectoryIcon = null;
+  };
+
+  const createTrajectoryIcon = (): any => {
+    if (!BMap) return null;
+    const size = 24;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.beginPath();
+    ctx.fillStyle = '#3B82F6';
+    ctx.arc(size / 2, size / 2, size / 2 - 2, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const url = canvas.toDataURL();
+    return new BMap.Icon(url, new BMap.Size(size, size));
+  };
+
+  const moveTrajectoryMarker = (point: ITrajectoryPoint): void => {
+    if (!map || !BMap) return;
+    const position = new BMap.Point(point.lng, point.lat);
+    if (!trajectoryMarker) {
+      trajectoryIcon = createTrajectoryIcon();
+      trajectoryMarker = new BMap.Marker(position, {
+        icon: trajectoryIcon
+      });
+      map.addOverlay(trajectoryMarker);
+    } else {
+      trajectoryMarker.setPosition(position);
+    }
+    //map.panTo(position);
+  };
 
   /**
    * 根据状态获取图标颜色
@@ -430,6 +483,39 @@
     }
   };
 
+  /**
+   * 播放轨迹点
+   */
+  const playTrajectory = (points: ITrajectoryPoint[] | ITrajectoryPoint): void => {
+    if (!map || !BMap) {
+      console.warn('地图未就绪，无法播放轨迹');
+      return;
+    }
+
+    if (!points) {
+      clearTrajectory();
+      return;
+    }
+
+    if (Array.isArray(points)) {
+      clearTrajectory();
+      if (points.length === 0) {
+        return;
+      }
+      const path = points.map((p) => new BMap.Point(p.lng, p.lat));
+      trajectoryLine = new BMap.Polyline(path, {
+        strokeColor: '#3B82F6',
+        strokeWeight: 4,
+        strokeOpacity: 0.8
+      });
+      map.addOverlay(trajectoryLine);
+      moveTrajectoryMarker(points[0]!);
+      return;
+    }
+
+    moveTrajectoryMarker(points);
+  };
+
   // 暴露方法给父组件
   defineExpose({
     map,
@@ -437,7 +523,8 @@
     startDraw,
     addFenceOverlay,
     removeFenceOverlay,
-    clearFences
+    clearFences,
+    playTrajectory
   });
 
   onUnmounted(() => {

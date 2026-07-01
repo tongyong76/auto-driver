@@ -32,8 +32,31 @@
           <span class="fence-name">{{ fence.name }}</span>
           <span class="fence-type">{{ fence.type === 'rectangle' ? '矩形' : '圆形' }}</span>
         </div>
+        <div class="fence-bind">
+          <label>绑定车辆</label>
+          <select
+            class="bind-select"
+            multiple
+            :value="fence.boundVehicleIds || []"
+            @change="(event) => onBindChange(event, fence)"
+          >
+            <option v-for="vehicle in props.vehicles" :key="vehicle.id" :value="vehicle.id">
+              {{ vehicle.id }}
+            </option>
+          </select>
+          <div class="bind-summary">
+            {{
+              fence.boundVehicleIds?.length
+                ? `已绑定 ${fence.boundVehicleIds.length} 辆`
+                : '未绑定车辆'
+            }}
+          </div>
+        </div>
         <button class="delete-btn" @click="deleteFence(fence.id)">删除</button>
       </div>
+      <button type="button" class="tool-btn sline active" @click="startMonitoring">
+        开始警戒
+      </button>
     </div>
 
     <div class="alert-list" v-if="alerts.length > 0">
@@ -49,11 +72,11 @@
 
 <script setup lang="ts">
   import { ref, onUnmounted } from 'vue';
-  import { type IGeoFence, type IBoundaryAlert, FenceType } from '@/types/vehicle';
-  import { calculateDistance } from '@/utils/geoFence';
+  import { type IVehicle, type IGeoFence, type IBoundaryAlert, FenceType } from '@/types/vehicle';
 
   const props = defineProps<{
     visible: boolean;
+    vehicles: IVehicle[];
   }>();
 
   const emit = defineEmits<{
@@ -61,18 +84,17 @@
     (e: 'draw-start', type: FenceType): void;
     (e: 'draw-end', fence: Omit<IGeoFence, 'id' | 'createdAt'>): void;
     (e: 'add-fence', fence: Omit<IGeoFence, 'id' | 'createdAt'>): void;
+    (e: 'bind-fence', payload: { fenceId: string; boundVehicleIds: string[] }): void;
     (e: 'clear-fences'): void;
     (e: 'delete-fence', fenceId: string): void;
   }>();
 
   const fences = ref<IGeoFence[]>([]);
   const alerts = ref<IBoundaryAlert[]>([]);
-  let alertId = 0;
   const drawMode = ref<FenceType | null>(null);
+  let alertIdCounter = 0;
 
   const startDraw = (type: FenceType) => emit('draw-start', type);
-
-  let alertIdCounter = 0;
 
   /**
    * 格式化时间
@@ -87,7 +109,6 @@
    */
   const startDrawRectangle = (): void => {
     drawMode.value = FenceType.RECTANGLE;
-    console.log('startDrawRectangle: drawMode', drawMode.value);
     emit('draw-start', FenceType.RECTANGLE);
   };
 
@@ -103,7 +124,19 @@
    * 添加围栏
    */
   const addFence = (fence: IGeoFence): void => {
-    fences.value.push(fence);
+    fences.value.push({ ...fence, boundVehicleIds: fence.boundVehicleIds ?? [] });
+  };
+
+  const updateFenceBinding = (fence: IGeoFence, selectedIds: string[]): void => {
+    fence.boundVehicleIds = selectedIds;
+    emit('bind-fence', { fenceId: fence.id, boundVehicleIds: selectedIds });
+  };
+
+  const onBindChange = (event: Event, fence: IGeoFence): void => {
+    const target = event.target as HTMLSelectElement | null;
+    if (!target) return;
+    const selectedIds = Array.from(target.selectedOptions).map((option) => option.value);
+    updateFenceBinding(fence, selectedIds);
   };
 
   /**
@@ -121,6 +154,13 @@
     fences.value = [];
     alerts.value = [];
     emit('clear-fences');
+  };
+
+  /**
+   * 开始警戒（占位方法）
+   */
+  const startMonitoring = (): void => {
+    // 当前版本只负责绑定操作，警戒由父组件定时检查和告警。
   };
 
   /**
@@ -147,7 +187,6 @@
       position
     };
     alerts.value.unshift(alert);
-    // 只保留最近20条告警
     if (alerts.value.length > 20) {
       alerts.value.pop();
     }
@@ -241,6 +280,18 @@
   .tool-btn.active {
     background: #10b981;
     color: white;
+  }
+
+  .tool-btn.sline {
+    width: 100%;
+    text-align: center;
+    background: rgba(239, 68, 68, 0.3);
+  }
+
+  .tool-btn.sline.active {
+    width: 100%;
+    text-align: center;
+    background: rgba(154, 239, 68, 0.444);
   }
 
   .fence-list,

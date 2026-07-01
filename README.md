@@ -26,22 +26,31 @@
 
 ## 项目结构
 
+```text
 src/
 ├── types/ # TypeScript 类型定义
-│ ├── vehicle.ts # 车辆数据类型
-│ └── baidu-map.d.ts # 百度地图类型声明
+│   ├── vehicle.ts # 车辆数据类型
+│   └── baidu-map.d.ts # 百度地图类型声明
 ├── models/ # 数据模型
-│ └── vehicle.ts # 车辆生成器
-├── services/ # 服务层
-│ └── mockWebSocket.ts # WebSocket 模拟服务
+│   └── vehicle.ts # 车辆生成器
 ├── utils/ # 工具函数
-│ └── vehicleMovement.ts # 车辆移动逻辑
+│   ├── vehicleMovement.ts # 车辆移动逻辑
+│   └── geoFence.ts # 电子围栏
+├── services/ # 服务层
+│   └── mockWebSocket.ts # WebSocket 模拟服务
+├── composables/ # Vue 组件
+│   └── useHeatmap.ts # 热力图
 ├── components/ # Vue 组件
-│ ├── MapView.vue # 地图组件
-│ └── InfoPanel.vue # 信息面板
+│   ├── MapView.vue # 地图组件
+│   ├── InfoPanel.vue # 信息面板
+│   ├── Dashboard.vue
+│   ├── TrajectoryPlayer.vue
+│   └── FenceManager.vue
 ├── App.vue
 ├── main.ts
-└── env.d.ts # 环境变量类型
+├── env.d.ts # 环境变量类型
+└── index.html
+```
 
 ## TypeScript 特性
 

@@ -1,13 +1,26 @@
 <template>
   <div class="app">
     <MapView ref="mapViewRef" @reset="resetDrawMode" />
-    <InfoPanel :vehicles="vehicles" @select-vehicle="onSelectVehicle" />
+    <InfoPanel
+      :vehicles="vehicles"
+      @select-vehicle="onSelectVehicle"
+      @replay-vehicle="onReplayVehicle"
+    />
+    <TrajectoryPlayer
+      :visible="playerVisible"
+      :selected-vehicle="selectedVehicle"
+      :trajectory-points="trajectoryPoints"
+      @close="closePlayer"
+      @play-point="onPlayPoint"
+    />
     <FenceManager
       ref="fenceManagerRef"
       :visible="fenceVisible"
+      :vehicles="vehicles"
       @close="closeFence"
       @draw-start="onDrawStart"
       @add-fence="onAddFence"
+      @bind-fence="onBindFence"
       @clear-fences="onClearFences"
       @delete-fence="onDeleteFence"
     />
@@ -18,14 +31,19 @@
   import { ref, onMounted } from 'vue';
   import MapView from './components/MapView.vue';
   import InfoPanel from './components/InfoPanel.vue';
+  import TrajectoryPlayer from './components/TrajectoryPlayer.vue';
   import FenceManager from './components/FenceManager.vue';
   import { mockWS } from './services/mockWebSocket';
-  import { type IVehicle, type IGeoFence, FenceType } from './types/vehicle';
+  import { type IVehicle, type ITrajectoryPoint, type IGeoFence, FenceType } from './types/vehicle';
   import { checkBoundary } from '@/utils/geoFence';
 
   const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
   const fenceManagerRef = ref<InstanceType<typeof FenceManager> | null>(null);
   const vehicles = ref<IVehicle[]>([]);
+  const playerVisible = ref(false);
+  const selectedVehicle = ref<IVehicle | null>(null);
+  const trajectoryPoints = ref<ITrajectoryPoint[]>([]);
+  let BMap: any = null;
 
   // 电子围栏状态
   const fenceVisible = ref(true);
@@ -39,6 +57,29 @@
     if (mapViewRef.value && mapViewRef.value.flyToVehicle) {
       mapViewRef.value.flyToVehicle(vehicle);
     }
+  };
+
+  const onReplayVehicle = (v: IVehicle) => {
+    console.log('onReplayVehicle', v);
+    const traj = mockWS.getVehicleTrajectory(v.id);
+    console.log('获取到轨迹点', traj);
+    if (traj?.length) {
+      selectedVehicle.value = v;
+      trajectoryPoints.value = traj;
+      playerVisible.value = true;
+      mapViewRef.value?.playTrajectory(traj);
+    }
+  };
+
+  const closePlayer = () => {
+    playerVisible.value = false;
+    selectedVehicle.value = null;
+    trajectoryPoints.value = [];
+    mapViewRef.value?.playTrajectory([]);
+  };
+
+  const onPlayPoint = (point: ITrajectoryPoint) => {
+    mapViewRef.value?.playTrajectory(point);
   };
 
   /**
@@ -100,7 +141,8 @@
     const newFence: IGeoFence = {
       ...fence,
       id: `fence_${Date.now()}`,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      boundVehicleIds: []
     } as IGeoFence;
     fences.push(newFence);
     mapViewRef.value?.addFenceOverlay(newFence);
@@ -116,6 +158,25 @@
     mapViewRef.value?.removeFenceOverlay(fenceId);
   };
 
+  const onBindFence = (payload: { fenceId: string; boundVehicleIds: string[] }): void => {
+    const fence = fences.find((f) => f.id === payload.fenceId);
+    if (fence) {
+      fence.boundVehicleIds = payload.boundVehicleIds;
+    }
+  };
+
+  const checkBoundaries = () => {
+    fences.forEach((f) => {
+      const targetVehicles = f.boundVehicleIds?.length
+        ? vehicles.value.filter((v) => f.boundVehicleIds?.includes(v.id))
+        : vehicles.value;
+      targetVehicles.forEach((v) => {
+        if (checkBoundary({ lng: v.lng, lat: v.lat }, f))
+          fenceManagerRef.value?.addAlert(v.id, f, { lng: v.lng, lat: v.lat });
+      });
+    });
+  };
+
   const resetDrawMode = (): void => {
     fenceManagerRef.value?.resetDrawMode();
   };
@@ -126,6 +187,7 @@
       if (msg.type === 'vehicles_update') {
         vehicles.value = msg.data;
         // 检查围栏越界（每秒检查一次）
+        checkBoundaries();
       }
     });
   });
