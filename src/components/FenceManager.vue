@@ -94,7 +94,7 @@
   const drawMode = ref<FenceType | null>(null);
   let alertIdCounter = 0;
 
-  const startDraw = (type: FenceType) => emit('draw-start', type);
+  //const startDraw = (type: FenceType) => emit('draw-start', type);
 
   /**
    * 格式化时间

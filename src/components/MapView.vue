@@ -15,12 +15,18 @@
         anchor="BMAP_ANCHOR_TOP_LEFT"
       ></bm-map-type>
     </baidu-map>
+
+    <!-- 热力图控制按钮 -->
+    <button class="heatmap-toggle" @click="toggleHeatmap">
+      {{ isHeatmapVisible ? '隐藏热力图' : '显示热力图' }}
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref, onUnmounted } from 'vue';
   import { mockWS } from '@/services/mockWebSocket';
+  import { useHeatmap } from '../composables/useHeatmap';
   import type { IPoint, IBaiduMapInstance } from '@/types/map';
   import {
     type IVehicle,
@@ -48,6 +54,9 @@
   const fenceOverlays = new Map<string, any>(); // 围栏覆盖物
   let currentDrawCallback: ((fence: Omit<IGeoFence, 'id' | 'createdAt'>) => void) | null = null;
 
+  // heatmap
+  const { isHeatmapVisible, initHeatmap, updateHeatmapData, toggleHeatmap } = useHeatmap();
+
   // 当前车辆数据（用于热力图更新）
   let currentVehicles: IVehicle[] = [];
   let trajectoryLine: any = null;
@@ -72,7 +81,7 @@
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return null;
 
     ctx.clearRect(0, 0, size, size);
@@ -145,7 +154,7 @@
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) {
       throw new Error('无法获取 Canvas 上下文');
@@ -255,14 +264,6 @@
     const existingIds = new Set(vehicles.map((v) => v.id));
     for (const [id, marker] of markers) {
       if (!existingIds.has(id)) {
-        // // 如果 marker 使用了 Blob URL，尝试释放
-        // try {
-        //   const icon = marker.getIcon && marker.getIcon();
-        //   const blobUrl = icon && icon.__blobUrl;
-        //   if (blobUrl) URL.revokeObjectURL(blobUrl);
-        // } catch (e) {
-        //   // ignore
-        // }
         map.removeOverlay(marker);
         markers.delete(id);
         markerCache.delete(id);
@@ -445,7 +446,8 @@
     BMap = BMapInstance;
     // mapRef.value = { map: mapInstance, BMap: BMapInstance };
     setTimeout(async () => {
-      // initHeatmap(map, BMap);
+      initHeatmap(map, BMap);
+      console.log('initHeatmap complete');
       try {
         await ensureDrawingManagerLib();
       } catch (e) {
@@ -468,6 +470,7 @@
       if (msg.type === 'vehicles_update') {
         currentVehicles = msg.data;
         updateVehicleMarkers(currentVehicles);
+        updateHeatmapData(currentVehicles); // 更新热力图
       }
     });
   };
@@ -561,6 +564,25 @@
       &:hover {
         background-color: #2563eb;
       }
+    }
+  }
+
+  .heatmap-toggle {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    &:hover {
+      background: #10b981;
+      border-color: #10b981;
     }
   }
 </style>
