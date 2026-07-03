@@ -16,6 +16,10 @@ class MockWebSocket {
   private statusListeners: Map<string, StatusCallback[]> = new Map();
   private vehicles: IVehicle[];
   private interval: number | null = null;
+  private heartbeatInterval: number | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
   private isConnected = true;
   private simulateDisconnect = false;
 
@@ -31,8 +35,11 @@ class MockWebSocket {
     if (this.interval) {
       clearInterval(this.interval);
     }
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
 
-    console.log('MockWebSocket started', this.interval);
+    this.isConnected = true;
+    this.reconnectAttempts = 0;
+    this.emitStatus('connected');
 
     this.interval = window.setInterval(() => {
       if (!this.simulateDisconnect && this.isConnected) {
@@ -40,6 +47,7 @@ class MockWebSocket {
         this.emitMessage();
       }
     }, 1000);
+    this.heartbeatInterval = setInterval(() => this.emitHeartbeat(), 5000);
   }
 
   /**
@@ -50,8 +58,37 @@ class MockWebSocket {
       clearInterval(this.interval);
       this.interval = null;
     }
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     this.isConnected = false;
     this.emitStatus('disconnected');
+  }
+
+  // 模拟断开连接事件
+  simulateDisconnectEvent(should: boolean) {
+    this.simulateDisconnect = should;
+    if (should && this.isConnected) {
+      this.isConnected = false;
+      this.emitStatus('disconnected');
+      this.attemptReconnect();
+    } else if (!should && !this.isConnected) this.reconnect();
+  }
+
+  private attemptReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
+    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
+    this.emitStatus('reconnecting');
+    setTimeout(() => this.reconnect(), delay);
+    this.reconnectAttempts++;
+  }
+
+  private reconnect() {
+    if (this.simulateDisconnect) {
+      // 模拟网络恢复
+      this.simulateDisconnect = false;
+    }
+    this.isConnected = true;
+    this.reconnectAttempts = 0;
+    this.emitStatus('connected');
   }
 
   /**
@@ -95,6 +132,15 @@ class MockWebSocket {
 
     const callbacks = this.listeners.get('message') || [];
     callbacks.forEach((cb) => cb(message));
+  }
+
+  /**
+   * 触发心跳事件
+   */
+  private emitHeartbeat() {
+    this.listeners
+      .get('heartbeat')
+      ?.forEach((cb) => cb({ type: 'heartbeat', timestamp: Date.now() } as any));
   }
 
   /**
@@ -155,6 +201,36 @@ class MockWebSocket {
   public getVehicleTrajectory(vehicleId: string): IVehicle['trajectory'] | null {
     const vehicle = this.vehicles.find((v) => v.id === vehicleId);
     return vehicle ? [...vehicle.trajectory] : null;
+  }
+
+  sendCommand(vehicleId: string, command: string, params?: any): Promise<boolean> {
+    return new Promise((resolve) => {
+      const vehicle = this.vehicles.find((v) => v.id === vehicleId);
+      if (!vehicle) {
+        resolve(false);
+        return;
+      }
+      setTimeout(
+        () => {
+          switch (command) {
+            case 'slow_down':
+              vehicle.speedKmh = Math.max(5, vehicle.speedKmh * 0.6);
+              break;
+            case 'resume_speed':
+              vehicle.speedKmh = Math.min(25, vehicle.speedKmh / 0.6);
+              break;
+            case 'stop':
+              vehicle.speedKmh = 0;
+              break;
+            case 'set_max_speed':
+              if (params?.maxSpeed) vehicle.speedKmh = Math.min(params.maxSpeed, vehicle.speedKmh);
+              break;
+          }
+          resolve(true);
+        },
+        200 + Math.random() * 300
+      );
+    });
   }
 }
 

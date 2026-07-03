@@ -38,6 +38,40 @@ export interface RouteConfig {
   speed: number;
 }
 
+/********** 创建电子围栏类型定义 **********/
+
+// 围栏类型枚举
+export enum FenceType {
+  RECTANGLE = 'rectangle',
+  CIRCLE = 'circle'
+}
+
+// 电子围栏数据结构
+export interface IGeoFence {
+  id: string;
+  name: string;
+  type: FenceType;
+  center: { lng: number; lat: number };
+  radius?: number; // 圆形半径（米）
+  bounds?: {
+    // 矩形范围
+    southWest: { lng: number; lat: number };
+    northEast: { lng: number; lat: number };
+  };
+  createdAt: number;
+  boundVehicleIds?: string[];
+}
+
+// 越界告警事件
+export interface IBoundaryAlert {
+  id: string;
+  vehicleId: string;
+  fenceId: string;
+  fenceName: string;
+  timestamp: number;
+  position: { lng: number; lat: number };
+}
+
 // WebSocket 消息类型
 export interface IWebSocketMessage {
   type: 'vehicles_update';
@@ -93,37 +127,3 @@ export const FAULT_CODES = ['ERR_001', 'ERR_002', 'ERR_003'];
 
 // 最大轨迹点数（5分钟 = 300个点，每秒1个）
 export const MAX_TRAJECTORY_POINTS = 300;
-
-/********** 创建电子围栏类型定义 **********/
-
-// 围栏类型枚举
-export enum FenceType {
-  RECTANGLE = 'rectangle',
-  CIRCLE = 'circle'
-}
-
-// 电子围栏数据结构
-export interface IGeoFence {
-  id: string;
-  name: string;
-  type: FenceType;
-  center: { lng: number; lat: number };
-  radius?: number; // 圆形半径（米）
-  bounds?: {
-    // 矩形范围
-    southWest: { lng: number; lat: number };
-    northEast: { lng: number; lat: number };
-  };
-  createdAt: number;
-  boundVehicleIds?: string[];
-}
-
-// 越界告警事件
-export interface IBoundaryAlert {
-  id: string;
-  vehicleId: string;
-  fenceId: string;
-  fenceName: string;
-  timestamp: number;
-  position: { lng: number; lat: number };
-}

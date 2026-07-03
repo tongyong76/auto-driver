@@ -38,7 +38,7 @@
   } from '@/types/vehicle';
 
   const emits = defineEmits<{
-    (e: 'reset'): void;
+    (e: 'resetDrawMode'): void;
   }>();
 
   // 百度地图初始化参数
@@ -59,6 +59,8 @@
 
   // 当前车辆数据（用于热力图更新）
   let currentVehicles: IVehicle[] = [];
+  let animationFrameId: number | null = null;
+  let pendingVehicles: IVehicle[] | null = null;
   let trajectoryLine: any = null;
   let trajectoryMarker: any = null;
   let trajectoryIcon: any = null;
@@ -341,7 +343,7 @@
       }
       map.removeOverlay(circle);
       drawingManager.close();
-      emits('reset');
+      emits('resetDrawMode');
     });
     drawingManager.addEventListener('rectanglecomplete', (rectangle: any) => {
       console.log('rectanglecomplete');
@@ -362,7 +364,7 @@
       }
       map.removeOverlay(rectangle);
       drawingManager.close();
-      emits('reset');
+      emits('resetDrawMode');
     });
   };
 
@@ -424,6 +426,50 @@
       map.addOverlay(overlay);
       fenceOverlays.set(fence.id, overlay);
     }
+  };
+
+  /**
+   * 绘制矩形围栏
+   */
+  const drawRectangle = (bounds: {
+    southWest: { lng: number; lat: number };
+    northEast: { lng: number; lat: number };
+  }): void => {
+    if (!map) return;
+
+    const points = [
+      new BMap.Point(bounds.southWest.lng, bounds.southWest.lat),
+      new BMap.Point(bounds.northEast.lng, bounds.southWest.lat),
+      new BMap.Point(bounds.northEast.lng, bounds.northEast.lat),
+      new BMap.Point(bounds.southWest.lng, bounds.northEast.lat)
+    ];
+
+    const polygon = new BMap.Polygon(points, {
+      strokeColor: '#10B981',
+      fillColor: '#10B981',
+      strokeWeight: 2,
+      fillOpacity: 0.2
+    });
+
+    map.addOverlay(polygon);
+    return polygon;
+  };
+
+  /**
+   * 绘制圆形围栏
+   */
+  const drawCircle = (center: { lng: number; lat: number }, radius: number): void => {
+    if (!map) return;
+
+    const circle = new BMap.Circle(new BMap.Point(center.lng, center.lat), radius, {
+      strokeColor: '#10B981',
+      fillColor: '#10B981',
+      strokeWeight: 2,
+      fillOpacity: 0.2
+    });
+
+    map.addOverlay(circle);
+    return circle;
   };
 
   const removeFenceOverlay = (fenceId: string) => {
@@ -523,6 +569,8 @@
   defineExpose({
     map,
     flyToVehicle,
+    drawRectangle,
+    drawCircle,
     startDraw,
     addFenceOverlay,
     removeFenceOverlay,

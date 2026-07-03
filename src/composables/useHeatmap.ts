@@ -118,33 +118,33 @@ export function useHeatmap() {
     isHeatmapVisible.value = !isHeatmapVisible.value;
   };
 
-  /**
-   * 显示热力图
-   */
-  const showHeatmap = (): void => {
-    if (heatmapOverlay.value) {
-      heatmapOverlay.value.show();
-      isHeatmapVisible.value = true;
-    }
-  };
+  // /**
+  //  * 显示热力图
+  //  */
+  // const showHeatmap = (): void => {
+  //   if (heatmapOverlay.value) {
+  //     heatmapOverlay.value.show();
+  //     isHeatmapVisible.value = true;
+  //   }
+  // };
 
-  /**
-   * 隐藏热力图
-   */
-  const hideHeatmap = (): void => {
-    if (heatmapOverlay.value) {
-      heatmapOverlay.value.hide();
-      isHeatmapVisible.value = false;
-    }
-  };
+  // /**
+  //  * 隐藏热力图
+  //  */
+  // const hideHeatmap = (): void => {
+  //   if (heatmapOverlay.value) {
+  //     heatmapOverlay.value.hide();
+  //     isHeatmapVisible.value = false;
+  //   }
+  // };
 
   return {
     heatmapOverlay,
     isHeatmapVisible,
     initHeatmap,
     updateHeatmapData,
-    toggleHeatmap,
-    showHeatmap,
-    hideHeatmap
+    toggleHeatmap
+    // showHeatmap,
+    // hideHeatmap
   };
 }

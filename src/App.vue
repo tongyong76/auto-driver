@@ -1,11 +1,12 @@
 <template>
   <div class="app">
-    <MapView ref="mapViewRef" @reset="resetDrawMode" />
+    <MapView ref="mapViewRef" @resetDrawMode="resetDrawMode" />
     <InfoPanel
       :vehicles="vehicles"
       @select-vehicle="onSelectVehicle"
       @replay-vehicle="onReplayVehicle"
     />
+    <Dashboard :vehicles="vehicles" @select-vehicle="onSelectVehicle" />
     <TrajectoryPlayer
       :visible="playerVisible"
       :selected-vehicle="selectedVehicle"
@@ -24,13 +25,33 @@
       @clear-fences="onClearFences"
       @delete-fence="onDeleteFence"
     />
+    <!-- 连接状态指示器 -->
+    <div class="connection-status" :class="connectionStatus">
+      <span class="status-dot"></span>
+      <span class="status-text">{{ connectionStatusText }}</span>
+      <button
+        v-if="connectionStatus === 'disconnected'"
+        @click="manualReconnect"
+        class="reconnect-btn"
+      >
+        手动重连
+      </button>
+      <button
+        v-if="connectionStatus === 'connected'"
+        @click="simulateDisconnect"
+        class="disconnect-btn"
+      >
+        模拟断网
+      </button>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue';
+  import { ref, onMounted, onUnmounted } from 'vue';
   import MapView from './components/MapView.vue';
   import InfoPanel from './components/InfoPanel.vue';
+  import Dashboard from './components/Dashboard.vue';
   import TrajectoryPlayer from './components/TrajectoryPlayer.vue';
   import FenceManager from './components/FenceManager.vue';
   import { mockWS } from './services/mockWebSocket';
@@ -40,10 +61,15 @@
   const mapViewRef = ref<InstanceType<typeof MapView> | null>(null);
   const fenceManagerRef = ref<InstanceType<typeof FenceManager> | null>(null);
   const vehicles = ref<IVehicle[]>([]);
+
+  // 连接状态
+  const connectionStatus = ref<'connected' | 'disconnected' | 'reconnecting'>('connected');
+  const connectionStatusText = ref('已连接');
+
+  // 轨迹回放状态
   const playerVisible = ref(false);
   const selectedVehicle = ref<IVehicle | null>(null);
   const trajectoryPoints = ref<ITrajectoryPoint[]>([]);
-  let BMap: any = null;
 
   // 电子围栏状态
   const fenceVisible = ref(true);
@@ -59,6 +85,9 @@
     }
   };
 
+  /**
+   * 轨迹回放
+   */
   const onReplayVehicle = (v: IVehicle) => {
     console.log('onReplayVehicle', v);
     const traj = mockWS.getVehicleTrajectory(v.id);
@@ -71,6 +100,9 @@
     }
   };
 
+  /**
+   * 关闭轨迹回放
+   */
   const closePlayer = () => {
     playerVisible.value = false;
     selectedVehicle.value = null;
@@ -78,8 +110,17 @@
     mapViewRef.value?.playTrajectory([]);
   };
 
+  /**
+   * 播放轨迹点
+   */
   const onPlayPoint = (point: ITrajectoryPoint) => {
     mapViewRef.value?.playTrajectory(point);
+
+    // if (mapViewRef.value && mapViewRef.value.map) {
+    //   const pointObj = new BMap.Point(point.lng, point.lat);
+    //   mapViewRef.value.map.panTo(pointObj);
+    // }
+    // **** point 和 pointObj 的区别：point 是轨迹点对象，pointObj 是百度地图的 Point 对象
   };
 
   /**
@@ -165,6 +206,9 @@
     }
   };
 
+  /**
+   * 检查车辆是否越界
+   */
   const checkBoundaries = () => {
     fences.forEach((f) => {
       const targetVehicles = f.boundVehicleIds?.length
@@ -181,6 +225,33 @@
     fenceManagerRef.value?.resetDrawMode();
   };
 
+  /**
+   * 连接状态处理
+   */
+  const updateConnectionStatus = (status: 'connected' | 'disconnected' | 'reconnecting'): void => {
+    connectionStatus.value = status;
+    switch (status) {
+      case 'connected':
+        connectionStatusText.value = '已连接';
+        break;
+      case 'disconnected':
+        connectionStatusText.value = '连接断开，尝试重连...';
+        break;
+      case 'reconnecting':
+        connectionStatusText.value = '重连中...';
+        break;
+    }
+  };
+
+  const simulateDisconnect = (): void => {
+    mockWS.simulateDisconnectEvent(true);
+  };
+
+  const manualReconnect = (): void => {
+    mockWS.simulateDisconnectEvent(false);
+    // 手动触发重连逻辑已在 mockWS 内部处理
+  };
+
   onMounted(() => {
     // 监听车辆数据更新
     mockWS.on('message', (msg) => {
@@ -190,7 +261,16 @@
         checkBoundaries();
       }
     });
+
+    mockWS.onStatus(updateConnectionStatus);
+    mockWS.start();
   });
+
+  onUnmounted(() => {
+    mockWS.stop();
+  });
+
+  defineExpose({ toggleFence });
 </script>
 
 <style lang="scss" scoped>
