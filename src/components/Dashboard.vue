@@ -101,14 +101,14 @@
 <script setup lang="ts">
   import { ref, watch, onMounted, onUnmounted } from 'vue';
   import * as echarts from 'echarts';
-  import type { Vehicle, VehicleStatus } from '../types/vehicle';
+  import type { IVehicle, VehicleStatus } from '../types/vehicle';
 
   const props = defineProps<{
-    vehicles: Vehicle[];
+    vehicles: IVehicle[];
   }>();
 
   const emit = defineEmits<{
-    (e: 'select-vehicle', vehicle: Vehicle): void;
+    (e: 'select-vehicle', vehicle: IVehicle): void;
   }>();
 
   // UI 状态
@@ -227,8 +227,8 @@
     const speeds = props.vehicles.map((v) => v.speedKmh);
     const bins = [0, 5, 10, 15, 20, 25, 30];
     const counts = bins.map((_, i) => {
-      if (i === bins.length - 1) return speeds.filter((s) => s >= bins[i]).length;
-      return speeds.filter((s) => s >= bins[i] && s < bins[i + 1]).length;
+      if (i === bins.length - 1) return speeds.filter((s) => s >= bins[i]!).length;
+      return speeds.filter((s) => s >= bins[i]! && s < bins[i + 1]!).length;
     });
 
     speedChart.setOption({
@@ -260,8 +260,8 @@
     const batteries = props.vehicles.map((v) => v.battery);
     const bins = [0, 20, 40, 60, 80, 100];
     const counts = bins.map((_, i) => {
-      if (i === bins.length - 1) return batteries.filter((b) => b >= bins[i]).length;
-      return batteries.filter((b) => b >= bins[i] && b < bins[i + 1]).length;
+      if (i === bins.length - 1) return batteries.filter((b) => b >= bins[i]!).length;
+      return batteries.filter((b) => b >= bins[i]! && b < bins[i + 1]!).length;
     });
 
     batteryChart.setOption({
